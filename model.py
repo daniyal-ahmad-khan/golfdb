@@ -14,7 +14,7 @@ class EventDetector(nn.Module):
         self.dropout = dropout
 
         net = MobileNetV2(width_mult=width_mult)
-        state_dict_mobilenet = torch.load('mobilenet_v2.pth.tar')
+        state_dict_mobilenet = torch.load('mobilenet_v2.pth.tar', map_location=torch.device('cpu'))
         if pretrain:
             net.load_state_dict(state_dict_mobilenet)
 
@@ -31,28 +31,36 @@ class EventDetector(nn.Module):
 
     def init_hidden(self, batch_size):
         if self.bidirectional:
-            return (Variable(torch.zeros(2*self.lstm_layers, batch_size, self.lstm_hidden).cuda(), requires_grad=True),
-                    Variable(torch.zeros(2*self.lstm_layers, batch_size, self.lstm_hidden).cuda(), requires_grad=True))
+            return (Variable(torch.zeros(2*self.lstm_layers, batch_size, self.lstm_hidden), requires_grad=True),
+                    Variable(torch.zeros(2*self.lstm_layers, batch_size, self.lstm_hidden), requires_grad=True))
         else:
-            return (Variable(torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden).cuda(), requires_grad=True),
-                    Variable(torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden).cuda(), requires_grad=True))
+            return (Variable(torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden), requires_grad=True),
+                    Variable(torch.zeros(self.lstm_layers, batch_size, self.lstm_hidden), requires_grad=True))
 
     def forward(self, x, lengths=None):
         batch_size, timesteps, C, H, W = x.size()
         self.hidden = self.init_hidden(batch_size)
 
         # CNN forward
+        print("x shape: ", x.shape)
         c_in = x.view(batch_size * timesteps, C, H, W)
+        print("c_in shape: ", c_in.shape)
         c_out = self.cnn(c_in)
+        print("c_out shape: ", c_out.shape)
         c_out = c_out.mean(3).mean(2)
+        print("c_out shape after mean: ", c_out.shape)
         if self.dropout:
             c_out = self.drop(c_out)
 
         # LSTM forward
         r_in = c_out.view(batch_size, timesteps, -1)
+        print("r_in shape: ", r_in.shape)
         r_out, states = self.rnn(r_in, self.hidden)
+        print("r_out shape: ", r_out.shape)
         out = self.lin(r_out)
+        print("out shape: ", out.shape)
         out = out.view(batch_size*timesteps,9)
+        print("out shape after view: ", out.shape)
 
         return out
 

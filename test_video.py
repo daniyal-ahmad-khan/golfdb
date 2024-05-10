@@ -32,6 +32,8 @@ class SampleVideo(Dataset):
     def __getitem__(self, idx):
         cap = cv2.VideoCapture(self.path)
         frame_size = [cap.get(cv2.CAP_PROP_FRAME_HEIGHT), cap.get(cv2.CAP_PROP_FRAME_WIDTH)]
+        frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        print('Frames: {}'.format(frames))
         ratio = self.input_size / max(frame_size)
         new_size = tuple([int(x * ratio) for x in frame_size])
         delta_w = self.input_size - new_size[1]
@@ -80,13 +82,14 @@ if __name__ == '__main__':
                           dropout=False)
 
     try:
-        save_dict = torch.load('models/swingnet_1800.pth.tar')
+        save_dict = torch.load('models/swingnet_1800.pth.tar', map_location=torch.device('cpu'))
     except:
         print("Model weights not found. Download model weights and place in 'models' folder. See README for instructions")
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print('Using device:', device)
     model.load_state_dict(save_dict['model_state_dict'])
+    print("model: ", model)
     model.to(device)
     model.eval()
     print("Loaded model weights")
@@ -101,13 +104,18 @@ if __name__ == '__main__':
                 image_batch = images[:, batch * seq_length:, :, :, :]
             else:
                 image_batch = images[:, batch * seq_length:(batch + 1) * seq_length, :, :, :]
-            logits = model(image_batch.cuda())
+            
+            print ("Image batch Number: ", batch)
+            print("Image batch shape: ", image_batch.shape)
+            logits = model(image_batch)
             if batch == 0:
                 probs = F.softmax(logits.data, dim=1).cpu().numpy()
+                print("Probs shape: ", probs.shape)
+                # print("Probs: ", probs)
             else:
                 probs = np.append(probs, F.softmax(logits.data, dim=1).cpu().numpy(), 0)
             batch += 1
-
+    print("Probs shape: ", probs.shape)
     events = np.argmax(probs, axis=0)[:-1]
     print('Predicted event frames: {}'.format(events))
     cap = cv2.VideoCapture(args.path)

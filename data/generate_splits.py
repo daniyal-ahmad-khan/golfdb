@@ -22,6 +22,7 @@ df['bbox'] = df['bbox'].apply(lambda x: x[0])
 df['split'] = df['split'].apply(lambda x: x[0][0])
 
 df.index = df.index.astype(int)
+df.to_csv('golfDB.csv')
 df.to_pickle('golfDB.pkl')
 
 for i in range(1, 5):
